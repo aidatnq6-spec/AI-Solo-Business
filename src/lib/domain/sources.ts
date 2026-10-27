@@ -1,0 +1,3 @@
+import { AppError, type Source } from "./schemas";
+export function checkSources(refs:string[],sources:Source[]){if(refs.some(id=>!sources.some(s=>s.id===id)))throw new AppError(422,"AI trả về nguồn không có trong tài liệu đầu vào.");}
+export function verificationIssues(text:string,sources:Source[],hasPrice:boolean,hasOffer:boolean){const issues:string[]=[];if(/\b\d[\d.,]*\s*(?:đồng|VNĐ|VND|%)/iu.test(text)&&!hasPrice&&!hasOffer)issues.push("Nội dung có số liệu giá/ưu đãi chưa có trong sản phẩm.");if(/(?:theo (?:luật|nghị định|thông tư)|bắt buộc|phạt tiền|mức phạt)/iu.test(text)&&!sources.some(s=>s.confirmedByOwner&&s.checkedAt))issues.push("Khẳng định về quy định cần nguồn có ngày kiểm tra và xác nhận.");return issues;}

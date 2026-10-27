@@ -1,0 +1,14 @@
+.superpowers/
+node_modules/
+.env*
+!.env.example
+.next/
+.data/
+.cache/
+.tools/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+coverage/
+*.tsbuildinfo

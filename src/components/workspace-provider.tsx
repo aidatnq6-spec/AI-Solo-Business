@@ -1,0 +1,22 @@
+"use client";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithCustomToken, signOut, type Auth } from "firebase/auth";
+import { collection, onSnapshot } from "firebase/firestore";
+import { firebaseClient } from "@/lib/firebase/client";
+import type { Database } from "@/lib/domain/schemas";
+import type { FirebaseOptions } from "firebase/app";
+type Config={mode:"demo"|"emulator"|"firebase";aiMode:string;firebase:FirebaseOptions;textConfigured:boolean;imageConfigured:boolean};
+type State={db:Database|null;config:Config|null;loading:boolean;error:string;authenticated:boolean;api:<T=unknown>(path:string,init?:RequestInit)=>Promise<T>;refresh:()=>Promise<void>;notify:(message:string)=>void;login:()=>Promise<void>;logout:()=>Promise<void>};
+const Context=createContext<State|null>(null);
+export const useWorkspace=()=>{const c=useContext(Context);if(!c)throw new Error("WorkspaceProvider missing");return c;};
+export function WorkspaceProvider({children}:{children:React.ReactNode}){
+ const [db,setDb]=useState<Database|null>(null),[config,setConfig]=useState<Config|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[authenticated,setAuthenticated]=useState(false),[toast,setToast]=useState("");const auth=useRef<Auth|null>(null);const timer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const notify=useCallback((s:string)=>{if(timer.current)clearTimeout(timer.current);setToast(s);timer.current=setTimeout(()=>setToast(""),4000);},[]);
+ const api=useCallback(async<T,>(path:string,init:RequestInit={}):Promise<T>=>{const headers=new Headers(init.headers);if(init.body&&!(init.body instanceof FormData))headers.set("Content-Type","application/json");if(auth.current?.currentUser)headers.set("Authorization",`Bearer ${await auth.current.currentUser.getIdToken()}`);const r=await fetch('/api/'+path,{...init,headers,cache:"no-store"});if(!r.ok){const data=await r.json().catch(()=>({error:"Không kết nối được máy chủ."}));throw new Error(data.error??"Yêu cầu thất bại.");}if(r.headers.get('content-type')?.includes('application/json'))return r.json();return await r.blob() as T;},[]);
+ const refresh=useCallback(async()=>{const data=await api<Database>('workspace');setDb(data);setError("");},[api]);
+ useEffect(()=>{let active=true;let unsubscribe=()=>{};let stopJobs=()=>{};async function start(){try{const c=await api<Config>('config');if(!active)return;setConfig(c);if(c.mode==='demo'){await refresh();if(active){setAuthenticated(true);setLoading(false);}return;}const client=firebaseClient(c.firebase,c.mode==='emulator');auth.current=client.auth;unsubscribe=onAuthStateChanged(client.auth,async user=>{stopJobs();if(!active)return;if(!user){setAuthenticated(false);setDb(null);setLoading(false);return;}try{await api('me');await refresh();if(active){setAuthenticated(true);stopJobs=onSnapshot(collection(client.db,'users',user.uid,'jobs'),()=>void refresh().catch(()=>{}));}}catch(e){if(active){setError((e as Error).message);setAuthenticated(false);}}finally{if(active)setLoading(false);}});}catch(e){if(active){setError((e as Error).message);setLoading(false);}}}void start();return()=>{active=false;unsubscribe();stopJobs();if(timer.current)clearTimeout(timer.current);};},[api,refresh]);
+ const activeJobs=db?.jobs.some(j=>['queued','running'].includes(j.status));useEffect(()=>{if(!activeJobs)return;const id=setInterval(()=>void refresh().catch(()=>{}),2000);return()=>clearInterval(id);},[activeJobs,refresh]);
+ async function login(){try{setError("");if(!config)return;if(config.mode==='demo'){await refresh();setAuthenticated(true);return;}if(!auth.current)throw new Error("Firebase chưa sẵn sàng.");if(config.mode==='emulator'){const r=await api<{token:string}>('emulator-login',{method:'POST',body:'{}'});await signInWithCustomToken(auth.current,r.token);}else await signInWithPopup(auth.current,new GoogleAuthProvider());}catch(e){setError((e as Error).message);}}
+ async function logout(){if(auth.current)await signOut(auth.current);setAuthenticated(false);setDb(null);}
+ return <Context.Provider value={{db,config,loading,error,authenticated,api,refresh,notify,login,logout}}>{children}{toast&&<div className="fixed bottom-6 left-1/2 z-[100] max-w-[calc(100%-2rem)] -translate-x-1/2 rounded-xl bg-foreground px-5 py-3 text-sm text-background shadow-lg" role="status">{toast}</div>}</Context.Provider>;
+}

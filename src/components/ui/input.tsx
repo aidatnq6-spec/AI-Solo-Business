@@ -1,0 +1,5 @@
+import * as React from "react";
+import { cn } from "@/lib/utils";
+export function Input({className,...props}:React.ComponentProps<"input">){return <input data-slot="input" className={cn("w-full min-w-0 rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 disabled:opacity-50",className)} {...props}/>;}
+export function Textarea({className,...props}:React.ComponentProps<"textarea">){return <textarea data-slot="textarea" className={cn("min-h-24 w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20",className)} {...props}/>;}
+export function Select({className,...props}:React.ComponentProps<"select">){return <select className={cn("min-h-11 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/30",className)} {...props}/>;}

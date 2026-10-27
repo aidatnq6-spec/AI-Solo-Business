@@ -1,0 +1,3 @@
+import { spawn } from "node:child_process";
+const children=[spawn(process.execPath,['node_modules/next/dist/bin/next','dev','--hostname','127.0.0.1','--port',process.env.PORT??'3100'],{stdio:'inherit',env:process.env}),spawn(process.execPath,['--import','tsx','services/agent-worker/src/run.ts'],{stdio:'inherit',env:process.env})];
+let stopping=false;function stop(){if(stopping)return;stopping=true;for(const p of children)p.kill();}process.on('SIGINT',()=>{stop();process.exit(0)});process.on('SIGTERM',()=>{stop();process.exit(0)});for(const p of children)p.on('exit',code=>{if(!stopping){stop();process.exit(code??1)}});
